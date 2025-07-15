@@ -2,19 +2,19 @@
 
 <br>
 
-<img src="/Github\VortexTunnelLogo.png" alt="Vortex Tunnel Logo" width="600">
+<img src="/Github/VortexTunnelLogo.png" alt="Vortex Tunnel Logo" width="600">
 
 <br>
 
-![Static Badge](https://img.shields.io/badge/Status-Beta-blue)
-![Last commit]([https://img.shields.io/github/last-commit/your-github-username/VortexTunnel](https://github.com/Starbug10/Vortex-Tunnel-V2))
-![License](https://img.shields.io/badge/License-MIT%20-green)
+[![Status: Beta](https://img.shields.io/badge/Status-Beta-blue)](https://github.com/Starbug10/Vortex-Tunnel-V2/releases)
+[![Last commit](https://img.shields.io/github/last-commit/Starbug10/Vortex-Tunnel-V2)](https://github.com/Starbug10/Vortex-Tunnel-V2/commits)
+[![License: MIT](https://img.shields.io/badge/License-MIT%20-green)](https://github.com/Starbug10/Vortex-Tunnel-V2/blob/main/LICENSE)
 
 <br>
 
-### Latest Release [Your Latest Version Number]
+### Latest Release v1.0.0 
 
-<a href="https://github.com/your-github-username/VortexTunnel/releases/latest">
+<a href="https://github.com/Starbug10/Vortex-Tunnel-V2/releases/latest">
   Download Latest Release
 </a>
 
@@ -49,7 +49,7 @@ Vortex Tunnel leverages **Tailscale** to establish secure, peer-to-peer connecti
 ## Installation
 
 1.  **Install Tailscale:** Download and set up Tailscale from [tailscale.com/download](https://tailscale.com/download/).
-2.  **Download Vortex Tunnel:** Grab the latest release from our [Releases page](https://github.com/your-github-username/VortexTunnel/releases).
+2.  **Download Vortex Tunnel:** Grab the latest release from our [Releases page](https://github.com/Starbug10/Vortex-Tunnel-V2/releases).
 3.  **Launch:** Install and run the app. Vortex Tunnel will connect via Tailscale.
 
 ---
@@ -62,12 +62,12 @@ We're planning features like multi-peer connectivity, integrated code editing, a
 
 ## Support
 
-Found a bug or have a question? Open an issue on our [GitHub Issues page](https://github.com/your-github-username/VortexTunnel/issues).
+Found a bug or have a question? Open an issue on our [GitHub Issues page](https://github.com/Starbug10/Vortex-Tunnel-V2/issues).
 
 ---
 
 ## License
 
-Vortex Tunnel is released under the [MIT License](https://github.com/your-github-username/VortexTunnel/blob/main/LICENSE).
+Vortex Tunnel is released under the [MIT License](https://github.com/Starbug10/Vortex-Tunnel-V2/blob/main/LICENSE).
 
 ---
