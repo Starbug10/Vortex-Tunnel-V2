@@ -11,11 +11,13 @@
 ![License](https://img.shields.io/badge/License-MIT%20-green)
 
 <br>
+
 ### Latest Release [Your Latest Version Number]
 
 <a href="https://github.com/your-github-username/VortexTunnel/releases/latest">
   Download Latest Release
 </a>
+
 <br><br>
 
 **Vortex Tunnel** is a real-time collaborative desktop app for secure, direct connections between two PCs using **Tailscale**. No servers or port forwarding needed! Chat, share huge files, draw together, and access persistent "vaults" for files across all your devices. Think **Discord Nitro** (1080p screen sharing, rich comms) meets **Parsec** (PC control), with per-account vaults for file sync.
