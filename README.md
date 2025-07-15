@@ -7,8 +7,8 @@
 <br>
 
 ![Static Badge](https://img.shields.io/badge/Status-Beta-blue)
-![Last commit](https://img.shields.io/github/last-commit/your-github-username/VortexTunnel)
-![License](https://img.shields.io/badge/License-MIT%20(or%20your%20license)-green)
+![Last commit]([https://img.shields.io/github/last-commit/your-github-username/VortexTunnel](https://github.com/Starbug10/Vortex-Tunnel-V2))
+![License](https://img.shields.io/badge/License-MIT%20-green)
 
 <br>
 ### Latest Release [Your Latest Version Number]
