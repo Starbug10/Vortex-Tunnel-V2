@@ -10,6 +10,13 @@
 [![Last commit](https://img.shields.io/github/last-commit/Starbug10/Vortex-Tunnel-V2)](https://github.com/Starbug10/Vortex-Tunnel-V2/commits)
 [![License: MIT](https://img.shields.io/badge/License-MIT%20-green)](https://github.com/Starbug10/Vortex-Tunnel-V2/blob/main/LICENSE)
 
+![Downloads](https://img.shields.io/github/downloads/Starbug10/Vortex-Tunnel-V2/total)
+![Stars](https://img.shields.io/github/stars/Starbug10/Vortex-Tunnel-V2?style=flat)
+![Open Issues](https://img.shields.io/github/issues/Starbug10/Vortex-Tunnel-V2)
+![Maintained With](https://img.shields.io/badge/Powered%20by-Tailscale-purple)
+![Platform](https://img.shields.io/badge/Platform-Windows-0078D4?logo=windows)
+
+
 <br>
 
 ### Latest Release v1.0.0 
