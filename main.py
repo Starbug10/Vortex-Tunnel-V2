@@ -48,12 +48,20 @@ class VortexTunnelApp(ctk.CTkFrame):
         super().__init__(master, **kwargs)
         self.master = master
 
+        # --- FIX: Store data in the AppData folder ---
+        # Get the AppData\Roaming folder path and create a dedicated folder for the app
+        app_data_dir = os.path.join(os.getenv('APPDATA'), 'Vortex Tunnel')
+        os.makedirs(app_data_dir, exist_ok=True)
+
         # --- Profiles & Memory ---
         self.NATHAN_NAME, self.MAJID_NAME = "Nathan", "Majid"
         self.NATHAN_IP, self.MAJID_IP = "100.122.120.65", "100.93.161.73"
         self.my_name, self.peer_name = None, None
-        self.config_file, self.chat_history_file = "config.json", "chat_history.log"
-        self.downloads_folder = "Vortex_Downloads"
+        
+        # Update file paths to use the new AppData directory
+        self.config_file = os.path.join(app_data_dir, "config.json")
+        self.chat_history_file = os.path.join(app_data_dir, "chat_history.log")
+        self.downloads_folder = os.path.join(app_data_dir, "Vortex_Downloads")
         os.makedirs(self.downloads_folder, exist_ok=True)
 
         # --- Networking & State ---
@@ -157,7 +165,7 @@ class VortexTunnelApp(ctk.CTkFrame):
         msg_id = msg_id_to_edit if msg_id_to_edit else str(uuid.uuid4())
         full_command = f"{cmd}:{msg_id}:{self.my_name}:{msg}"
         self.send_command(full_command)
-        self.process_command(full_command) # --- FIX: Process own message immediately
+        self.process_command(full_command)
         self.chat_entry.delete(0, tk.END)
         if msg_id_to_edit: self.send_button.configure(text="Send", command=self.send_chat_message)
 
@@ -193,19 +201,22 @@ class VortexTunnelApp(ctk.CTkFrame):
         threading.Thread(target=self._wait_for_file_acceptance, args=(file_id,), daemon=True).start()
 
     def _wait_for_file_acceptance(self, file_id):
-        accepted = self.pending_transfers[file_id]["event"].wait(timeout=120) # 2 minute timeout
+        accepted = self.pending_transfers[file_id]["event"].wait(timeout=120)
         if accepted:
             filepath = self.pending_transfers[file_id]["filepath"]
             self._send_file_data(filepath)
             local_path = os.path.join(self.downloads_folder, f"{file_id}_{os.path.basename(filepath)}")
             import shutil; shutil.copy(filepath, local_path)
             self.add_file_to_gallery(file_id, os.path.basename(filepath), local_path)
-        del self.pending_transfers[file_id]
+        if file_id in self.pending_transfers:
+            del self.pending_transfers[file_id]
 
     def _send_file_data(self, filepath):
         try:
             with open(filepath, 'rb') as f:
-                while chunk := f.read(4096): self.connection.sendall(chunk)
+                self.connection.sendall(f"FILE_START_TRANSFER:{os.path.basename(filepath)}:{os.path.getsize(filepath)}\n".encode('utf-8'))
+                while chunk := f.read(4096):
+                    self.connection.sendall(chunk)
         except Exception as e: print(f"Error sending file data: {e}")
 
     def load_config_and_history(self):
@@ -261,7 +272,6 @@ class VortexTunnelApp(ctk.CTkFrame):
                 self.file_gallery_items.clear()
             
             if not from_history and cmd in ["CHAT_MSG", "DELETE_MSG", "EDIT_MSG", "CLEAR_CHAT"]:
-                # This history saving method is simplified for this context
                 with open(self.chat_history_file, 'a') as f:
                     if cmd == "CLEAR_CHAT": open(self.chat_history_file, 'w').close()
                     else: f.write(command_str + '\n')
@@ -269,195 +279,67 @@ class VortexTunnelApp(ctk.CTkFrame):
 
     def handle_file_decision(self, accepted, file_id, filename):
         if accepted:
-            save_path = filedialog.asksaveasfilename(initialfile=filename)
+            save_path = filedialog.asksaveasfilename(initialfile=filename, title="Save Received File")
             if save_path:
                 self.send_command(f"FILE_ACCEPT:{file_id}")
-                # The file data will arrive in the main receive_data loop
-                # We need a way to direct it to the correct file
-                self.pending_transfers[file_id] = {"save_path": save_path, "event": threading.Event()}
-        # Decline is implicit if not accepted, no need to send reject command
-
-    def _receive_file_data(self, file_id, save_path, filesize, initial_buffer):
-        bytes_received = 0
-        try:
-            with open(save_path, 'wb') as f:
-                if initial_buffer:
-                    f.write(initial_buffer)
-                    bytes_received += len(initial_buffer)
-                
-                while bytes_received < filesize:
-                    chunk = self.connection.recv(min(4096, filesize - bytes_received))
-                    if not chunk: break
-                    f.write(chunk)
-                    bytes_received += len(chunk)
-            
-            if bytes_received == filesize:
-                self.add_file_to_gallery(file_id, os.path.basename(save_path), save_path)
-        except Exception as e:
-            print(f"Error during file reception: {e}")
-        
-        if file_id in self.pending_transfers:
-            del self.pending_transfers[file_id]
+                self.pending_transfers[file_id] = {"save_path": save_path}
+        else:
+            self.send_command(f"FILE_REJECT:{file_id}") # Inform sender of rejection
 
     def receive_data(self):
-        buffer = b""; separator = b"\n"
-        is_receiving_file = False
-        file_info = {}
-
-        while self.connected.is_set():
-            try:
-                if not is_receiving_file:
-                    chunk = self.connection.recv(4096)
-                    if not chunk: self.handle_disconnect(); break
-                    buffer += chunk
-                    
-                    while separator in buffer:
-                        line_bytes, buffer = buffer.split(separator, 1)
-                        line_str = line_bytes.decode('utf-8', errors='ignore')
-                        
-                        if line_str.startswith("FILE_ACCEPT"):
-                            # The sender receives this, not the receiver
-                            self.process_command(line_str)
-                            continue
-
-                        if line_str.startswith("FILE_REQUEST"):
-                            self.process_command(line_str)
-                            # After this, the receiver might get an ACCEPT and then raw data
-                            continue
-
-                        # Check if this is a file transfer initiation
-                        if line_str.startswith("FILE_DATA"): # A hypothetical new command
-                            _, file_id, filename, filesize_str = line_str.split(":", 3)
-                            if file_id in self.pending_transfers:
-                                is_receiving_file = True
-                                file_info = {
-                                    "id": file_id,
-                                    "path": self.pending_transfers[file_id]['save_path'],
-                                    "size": int(filesize_str),
-                                    "received": 0
-                                }
-                                break # Exit command loop to start receiving file bytes
-                        else:
-                            self.process_command(line_str)
-                else: # We are in file receiving mode
-                    # This part of the logic needs to be re-thought.
-                    # The current design has a race condition.
-                    # Let's simplify and handle file data directly after an ACCEPT.
-                    # The logic is getting too complex with the state machine.
-                    # A better approach is needed.
-                    pass # Refactoring needed here. For now, we rely on the old (buggy) way.
-                    # The old way is actually in _handle_file_reception, let's call that.
-                    # But how do we get the data? The logic is flawed.
-
-            except Exception: self.handle_disconnect(); break
-        # The receive_data loop needs a complete rewrite for robust file transfer.
-        # Let's try a simpler, more direct approach.
-        # The fundamental issue is mixing command streams and data streams.
-        # The provided code has this flaw. I will fix it.
-
-    # --- REWRITTEN receive_data and related file methods ---
-    def receive_data_fixed(self):
         buffer = b""
         separator = b"\n"
+        receiving_file_info = None
+
         while self.connected.is_set():
             try:
-                chunk = self.connection.recv(4096)
-                if not chunk:
-                    self.handle_disconnect()
-                    break
-                buffer += chunk
+                chunk = self.connection.recv(8192)
+                if not chunk: self.handle_disconnect(); break
                 
+                if receiving_file_info:
+                    buffer += chunk
+                    filepath = receiving_file_info['path']
+                    filesize = receiving_file_info['size']
+                    file_id = receiving_file_info['id']
+
+                    if len(buffer) >= filesize:
+                        file_data = buffer[:filesize]
+                        buffer = buffer[filesize:]
+                        with open(filepath, 'wb') as f: f.write(file_data)
+                        self.add_file_to_gallery(file_id, os.path.basename(filepath), filepath)
+                        receiving_file_info = None
+                    continue
+
+                buffer += chunk
                 while separator in buffer:
-                    command_bytes, buffer = buffer.split(separator, 1)
-                    command_str = command_bytes.decode('utf-8', errors='ignore')
+                    line_bytes, buffer = buffer.split(separator, 1)
+                    command_str = line_bytes.decode('utf-8', errors='ignore')
                     
-                    # This is a special case. After this command, raw data follows.
                     if command_str.startswith("FILE_START_TRANSFER"):
-                        _, file_id, filesize_str = command_str.split(":", 2)
+                        _, file_id, filename, filesize_str = command_str.split(":", 3)
                         filesize = int(filesize_str)
-                        
                         if file_id in self.pending_transfers:
-                            save_path = self.pending_transfers[file_id]['save_path']
-                            filename = os.path.basename(save_path)
-                            
-                            # Now, read exactly `filesize` bytes from the socket
-                            bytes_received = len(buffer)
-                            file_data = [buffer]
-                            
-                            while bytes_received < filesize:
-                                chunk = self.connection.recv(min(4096, filesize - bytes_received))
-                                if not chunk: break
-                                file_data.append(chunk)
-                                bytes_received += len(chunk)
-
-                            # Reassemble the file and any leftover data in the buffer
-                            full_file_bytes = b"".join(file_data)
-                            buffer = full_file_bytes[filesize:]
-                            file_content = full_file_bytes[:filesize]
-
-                            # Save the file
-                            with open(save_path, 'wb') as f:
-                                f.write(file_content)
-                            
-                            self.add_file_to_gallery(file_id, filename, save_path)
-                            del self.pending_transfers[file_id]
-                        
-                        continue # Go back to processing the (potentially new) buffer
-
-                    # All other commands are processed normally
-                    if command_str:
+                            receiving_file_info = {
+                                "id": file_id,
+                                "path": self.pending_transfers[file_id]['save_path'],
+                                "size": filesize
+                            }
+                            # The rest of the buffer is the start of the file
+                            if len(buffer) >= filesize:
+                                file_data = buffer[:filesize]
+                                buffer = buffer[filesize:]
+                                with open(receiving_file_info['path'], 'wb') as f: f.write(file_data)
+                                self.add_file_to_gallery(file_id, filename, receiving_file_info['path'])
+                                receiving_file_info = None
+                            # else, the loop will continue to buffer more data
+                        break # Exit command processing to handle file data
+                    elif command_str:
                         self.process_command(command_str)
 
             except Exception as e:
                 print(f"Receive loop error: {e}")
                 self.handle_disconnect()
                 break
-
-    def handle_file_decision_fixed(self, accepted, file_id, filename):
-        if accepted:
-            save_path = filedialog.asksaveasfilename(initialfile=filename)
-            if save_path:
-                self.pending_transfers[file_id] = {"save_path": save_path}
-                self.send_command(f"FILE_ACCEPT:{file_id}")
-        else:
-            self.send_command(f"FILE_REJECT:{file_id}")
-
-    def _wait_for_file_acceptance_fixed(self, file_id):
-        # This function is now simpler. It just waits for an ACCEPT or REJECT.
-        # The actual sending is triggered by the ACCEPT command.
-        pass # This logic is now handled by the sender upon receiving FILE_ACCEPT
-
-    def send_file_fixed(self, filepath):
-        if not filepath or not os.path.exists(filepath): return
-        filename, filesize = os.path.basename(filepath), os.path.getsize(filepath)
-        file_id = str(uuid.uuid4())
-        # The sender just sends the request and waits for an accept.
-        self.pending_transfers[file_id] = {"filepath": filepath, "filesize": filesize}
-        self.send_command(f"FILE_REQUEST:{file_id}:{filename}:{filesize}")
-
-    def _send_file_data_fixed(self, file_id):
-        if file_id not in self.pending_transfers: return
-        filepath = self.pending_transfers[file_id]['filepath']
-        filesize = self.pending_transfers[file_id]['filesize']
-        
-        # Announce the start of the raw data transfer
-        self.send_command(f"FILE_START_TRANSFER:{file_id}:{filesize}")
-        
-        # Send the raw data
-        try:
-            with open(filepath, 'rb') as f:
-                while chunk := f.read(4096):
-                    self.connection.sendall(chunk)
-            
-            # Add to own gallery after successful send
-            local_path = os.path.join(self.downloads_folder, f"{file_id}_{os.path.basename(filepath)}")
-            import shutil; shutil.copy(filepath, local_path)
-            self.add_file_to_gallery(file_id, os.path.basename(filepath), local_path)
-
-        except Exception as e:
-            print(f"Error sending file data: {e}")
-        finally:
-            del self.pending_transfers[file_id]
 
     def send_command(self, data_str):
         if self.connection and self.connected.is_set():
@@ -468,7 +350,7 @@ class VortexTunnelApp(ctk.CTkFrame):
         if self.old_x is not None:
             full_command = f"DRAW:{self.old_x},{self.old_y},{event.x},{event.y},{self.color},{self.brush_size}"
             self.send_command(full_command)
-            self.process_command(full_command) # Draw locally
+            self.process_command(full_command)
         self.old_x, self.old_y = event.x, event.y
 
     def reset_drawing_state(self, event): self.old_x, self.old_y = None, None
@@ -491,8 +373,7 @@ class VortexTunnelApp(ctk.CTkFrame):
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client_socket.connect((peer_ip, self.port)); self.connection = client_socket; self.connected.set()
             self.update_status(f"Connected to {self.peer_name} ({peer_ip})", "green")
-            # Use the fixed receive method
-            threading.Thread(target=self.receive_data_fixed, daemon=True).start()
+            threading.Thread(target=self.receive_data, daemon=True).start()
         except Exception as e: self.update_status(f"Connection failed: {e}", "red")
 
     def start_server(self): threading.Thread(target=self._server_thread, daemon=True).start()
@@ -504,8 +385,7 @@ class VortexTunnelApp(ctk.CTkFrame):
             try:
                 conn, addr = server.accept(); self.connection = conn; self.connected.set()
                 self.update_status(f"Connected by {addr[0]}", "green")
-                # Use the fixed receive method
-                threading.Thread(target=self.receive_data_fixed, daemon=True).start()
+                threading.Thread(target=self.receive_data, daemon=True).start()
             except OSError: pass
 
     def update_status(self, message, color): self.status_label.configure(text=message, text_color=color)
@@ -514,12 +394,6 @@ class VortexTunnelApp(ctk.CTkFrame):
         self.connected.clear()
         if self.connection: self.connection.close(); self.connection = None
         self.update_status("Status: Disconnected", "red"); self.start_server()
-
-    # Replace old methods with fixed ones
-    receive_data = receive_data_fixed
-    handle_file_decision = handle_file_decision_fixed
-    send_file = send_file_fixed
-    _send_file_data = _send_file_data_fixed
 
 if __name__ == "__main__":
     root = TkinterDnD.Tk()
