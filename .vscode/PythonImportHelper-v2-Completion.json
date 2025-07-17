@@ -1,0 +1,202 @@
+[
+    {
+        "label": "customtkinter",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "customtkinter",
+        "description": "customtkinter",
+        "detail": "customtkinter",
+        "documentation": {}
+    },
+    {
+        "label": "tkinter",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "tkinter",
+        "description": "tkinter",
+        "detail": "tkinter",
+        "documentation": {}
+    },
+    {
+        "label": "colorchooser",
+        "importPath": "tkinter",
+        "description": "tkinter",
+        "isExtraImport": true,
+        "detail": "tkinter",
+        "documentation": {}
+    },
+    {
+        "label": "filedialog",
+        "importPath": "tkinter",
+        "description": "tkinter",
+        "isExtraImport": true,
+        "detail": "tkinter",
+        "documentation": {}
+    },
+    {
+        "label": "messagebox",
+        "importPath": "tkinter",
+        "description": "tkinter",
+        "isExtraImport": true,
+        "detail": "tkinter",
+        "documentation": {}
+    },
+    {
+        "label": "socket",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "socket",
+        "description": "socket",
+        "detail": "socket",
+        "documentation": {}
+    },
+    {
+        "label": "threading",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "threading",
+        "description": "threading",
+        "detail": "threading",
+        "documentation": {}
+    },
+    {
+        "label": "os",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "os",
+        "description": "os",
+        "detail": "os",
+        "documentation": {}
+    },
+    {
+        "label": "json",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "json",
+        "description": "json",
+        "detail": "json",
+        "documentation": {}
+    },
+    {
+        "label": "uuid",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "uuid",
+        "description": "uuid",
+        "detail": "uuid",
+        "documentation": {}
+    },
+    {
+        "label": "Image",
+        "importPath": "PIL",
+        "description": "PIL",
+        "isExtraImport": true,
+        "detail": "PIL",
+        "documentation": {}
+    },
+    {
+        "label": "ImageTk",
+        "importPath": "PIL",
+        "description": "PIL",
+        "isExtraImport": true,
+        "detail": "PIL",
+        "documentation": {}
+    },
+    {
+        "label": "DND_FILES",
+        "importPath": "tkinterdnd2",
+        "description": "tkinterdnd2",
+        "isExtraImport": true,
+        "detail": "tkinterdnd2",
+        "documentation": {}
+    },
+    {
+        "label": "TkinterDnD",
+        "importPath": "tkinterdnd2",
+        "description": "tkinterdnd2",
+        "isExtraImport": true,
+        "detail": "tkinterdnd2",
+        "documentation": {}
+    },
+    {
+        "label": "base64",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "base64",
+        "description": "base64",
+        "detail": "base64",
+        "documentation": {}
+    },
+    {
+        "label": "time",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "time",
+        "description": "time",
+        "detail": "time",
+        "documentation": {}
+    },
+    {
+        "label": "requests",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "requests",
+        "description": "requests",
+        "detail": "requests",
+        "documentation": {}
+    },
+    {
+        "label": "webbrowser",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "webbrowser",
+        "description": "webbrowser",
+        "detail": "webbrowser",
+        "documentation": {}
+    },
+    {
+        "label": "sys",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "sys",
+        "description": "sys",
+        "detail": "sys",
+        "documentation": {}
+    },
+    {
+        "label": "Tooltip",
+        "kind": 6,
+        "importPath": "main",
+        "description": "main",
+        "peekOfCode": "class Tooltip:\n    def __init__(self, widget, text):\n        self.widget = widget\n        self.text = text\n        self.tooltip_window = None\n        self.widget.bind(\"<Enter>\", self.show_tooltip)\n        self.widget.bind(\"<Leave>\", self.hide_tooltip)\n    def show_tooltip(self, event):\n        if self.tooltip_window or not self.text: return\n        x, y, _, _ = self.widget.bbox(\"insert\")",
+        "detail": "main",
+        "documentation": {}
+    },
+    {
+        "label": "FileAcceptDialog",
+        "kind": 6,
+        "importPath": "main",
+        "description": "main",
+        "peekOfCode": "class FileAcceptDialog(ctk.CTkToplevel):\n    def __init__(self, master, filename, filesize, callback):\n        super().__init__(master)\n        self.callback = callback\n        self.title(\"Incoming File\")\n        self.geometry(\"400x200\")\n        self.transient(master); self.grab_set()\n        file_type = os.path.splitext(filename)[1].upper()[1:] or \"Unknown\"\n        size_mb = filesize / (1024 * 1024)\n        info_text = f\"Name: {filename}\\nType: {file_type}\\nSize: {size_mb:.2f} MB\"",
+        "detail": "main",
+        "documentation": {}
+    },
+    {
+        "label": "SettingsDialog",
+        "kind": 6,
+        "importPath": "main",
+        "description": "main",
+        "peekOfCode": "class SettingsDialog(ctk.CTkToplevel):\n    def __init__(self, master, app_instance):\n        super().__init__(master)\n        self.app = app_instance\n        self.title(\"Settings\")\n        self.geometry(\"400x300\")\n        self.transient(master); self.grab_set()\n        ctk.CTkLabel(self, text=\"Vortex Tunnel Settings\", font=ctk.CTkFont(size=20, weight=\"bold\")).pack(pady=20)\n        info_frame = ctk.CTkFrame(self); info_frame.pack(pady=10, padx=20, fill=\"x\")\n        ctk.CTkLabel(info_frame, text=f\"Version: {self.app.CURRENT_VERSION}\").pack(anchor=\"w\", padx=10)",
+        "detail": "main",
+        "documentation": {}
+    },
+    {
+        "label": "VortexTunnelApp",
+        "kind": 6,
+        "importPath": "main",
+        "description": "main",
+        "peekOfCode": "class VortexTunnelApp(ctk.CTkFrame):\n    CURRENT_VERSION = \"0.0.1\"\n    def __init__(self, master, **kwargs):\n        super().__init__(master, **kwargs)\n        self.master = master\n        app_data_dir = os.path.join(os.getenv('APPDATA'), 'Vortex Tunnel')\n        os.makedirs(app_data_dir, exist_ok=True)\n        self.NATHAN_NAME, self.MAJID_NAME = \"Nathan\", \"Majid\"\n        self.NATHAN_IP, self.MAJID_IP = \"100.122.120.65\", \"100.93.161.73\"\n        self.my_name, self.peer_name = None, None",
+        "detail": "main",
+        "documentation": {}
+    }
+]

@@ -10,6 +10,9 @@ from PIL import Image, ImageTk
 from tkinterdnd2 import DND_FILES, TkinterDnD
 import base64
 import time
+import requests
+import webbrowser
+import sys
 
 # --- Custom Tooltip Class ---
 class Tooltip:
@@ -21,8 +24,7 @@ class Tooltip:
         self.widget.bind("<Leave>", self.hide_tooltip)
 
     def show_tooltip(self, event):
-        if self.tooltip_window or not self.text:
-            return
+        if self.tooltip_window or not self.text: return
         x, y, _, _ = self.widget.bbox("insert")
         x += self.widget.winfo_rootx() + 25
         y += self.widget.winfo_rooty() + 25
@@ -35,8 +37,7 @@ class Tooltip:
         label.pack(ipadx=1)
 
     def hide_tooltip(self, event):
-        if self.tooltip_window:
-            self.tooltip_window.destroy()
+        if self.tooltip_window: self.tooltip_window.destroy()
         self.tooltip_window = None
 
 # --- Custom Dialogs ---
@@ -68,17 +69,58 @@ class SettingsDialog(ctk.CTkToplevel):
         self.transient(master); self.grab_set()
         ctk.CTkLabel(self, text="Vortex Tunnel Settings", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=20)
         info_frame = ctk.CTkFrame(self); info_frame.pack(pady=10, padx=20, fill="x")
-        ctk.CTkLabel(info_frame, text=f"Version: 4.0").pack(anchor="w", padx=10)
+        ctk.CTkLabel(info_frame, text=f"Version: {self.app.CURRENT_VERSION}").pack(anchor="w", padx=10)
         ctk.CTkLabel(info_frame, text=f"My Name: {self.app.my_name or 'Not Selected'}").pack(anchor="w", padx=10)
         ctk.CTkLabel(info_frame, text=f"Peer Name: {self.app.peer_name or 'Not Connected'}").pack(anchor="w", padx=10)
-        ctk.CTkButton(self, text="Check for Updates", command=self.check_for_updates).pack(pady=10)
+        self.update_button = ctk.CTkButton(self, text="Check for Updates", command=self.check_for_updates)
+        self.update_button.pack(pady=10)
         ctk.CTkButton(self, text="Close", command=self.destroy).pack(pady=10)
 
     def check_for_updates(self):
-        messagebox.showinfo("Update Check", "You are on the latest version of Vortex Tunnel.")
+        self.update_button.configure(text="Checking...", state="disabled")
+        threading.Thread(target=self._update_thread, daemon=True).start()
+
+    def _update_thread(self):
+        try:
+            version_url = "https://raw.githubusercontent.com/Starbug10/Vortex-Tunnel-V2/main/version.json"
+            response = requests.get(version_url, timeout=10)
+            response.raise_for_status()
+            latest_info = response.json()
+            latest_version = latest_info["latest_version"]
+
+            if latest_version > self.app.CURRENT_VERSION:
+                if messagebox.askyesno("Update Available", f"A new version ({latest_version}) is available. Would you like to download it?"):
+                    self.download_and_run_update(latest_info)
+            else:
+                messagebox.showinfo("No Update", "You are on the latest version of Vortex Tunnel.")
+        except Exception as e:
+            messagebox.showerror("Update Error", f"Could not check for updates. Please check your internet connection.\n\nError: {e}")
+        finally:
+            self.update_button.configure(text="Check for Updates", state="normal")
+
+    def download_and_run_update(self, latest_info):
+        try:
+            release_tag = latest_info["release_tag"]
+            asset_name = latest_info["asset_name"]
+            download_url = f"https://github.com/Starbug10/Vortex-Tunnel-V2/releases/download/{release_tag}/{asset_name}"
+            download_path = os.path.join(os.path.expanduser("~"), "Downloads", asset_name)
+            
+            self.update_button.configure(text="Downloading...")
+            with requests.get(download_url, stream=True) as r:
+                r.raise_for_status()
+                with open(download_path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192): f.write(chunk)
+            
+            if messagebox.askyesno("Download Complete", f"Update downloaded to:\n{download_path}\n\nWould you like to run it now? (This will close the current app)"):
+                os.startfile(download_path)
+                self.app.on_closing(force_close=True)
+        except Exception as e:
+            messagebox.showerror("Download Error", f"Failed to download the update.\n\nError: {e}")
 
 # --- Main Application ---
 class VortexTunnelApp(ctk.CTkFrame):
+    CURRENT_VERSION = "0.0.1"
+    
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         self.master = master
@@ -156,7 +198,6 @@ class VortexTunnelApp(ctk.CTkFrame):
             file_frame = ctk.CTkFrame(msg_frame, fg_color="gray20"); file_frame.pack(side="left", padx=5, pady=5)
             ctk.CTkLabel(file_frame, text=f"📄 {file_info['name']}").pack(anchor="w")
             ctk.CTkLabel(file_frame, text=f"Size: {file_info['size']:.2f} MB", font=("Arial", 9)).pack(anchor="w")
-            ctk.CTkButton(file_frame, text="Download", command=lambda id=file_info['id'], name=file_info['name']: self.request_file_download(id, name)).pack(pady=5)
         else:
             msg_label = ctk.CTkLabel(msg_frame, text=message, wraplength=self.winfo_width() - 250, justify="left"); msg_label.pack(side="left", padx=5, pady=5, expand=True, fill="x")
         if is_own and not is_file:
@@ -203,6 +244,7 @@ class VortexTunnelApp(ctk.CTkFrame):
         self.update_status(f"Requesting to send {os.path.basename(filepath)}...", "orange")
         filename, filesize = os.path.basename(filepath), os.path.getsize(filepath)
         file_id = str(uuid.uuid4())
+        
         self.pending_transfers[file_id] = {"filepath": filepath}
         self.send_command(f"FILE_REQUEST:{file_id}:{filename}:{filesize}")
 
@@ -210,12 +252,14 @@ class VortexTunnelApp(ctk.CTkFrame):
         if file_id not in self.pending_transfers: return
         filepath = self.pending_transfers[file_id]['filepath']
         try:
+            self.send_command(f"FILE_START_TRANSFER:{file_id}:{os.path.basename(filepath)}:{os.path.getsize(filepath)}")
             with open(filepath, 'rb') as f:
-                self.send_command(f"FILE_START_TRANSFER:{file_id}:{os.path.getsize(filepath)}")
                 while chunk := f.read(8192): self.connection.sendall(chunk)
             self.update_status(f"Successfully sent {os.path.basename(filepath)}", "green")
         except Exception as e: print(f"Error sending file data: {e}"); self.update_status(f"Failed to send file", "red")
-        finally: del self.pending_transfers[file_id]
+        finally: 
+            if file_id in self.pending_transfers:
+                del self.pending_transfers[file_id]
 
     def request_file_download(self, file_id, filename):
         save_path = filedialog.asksaveasfilename(initialfile=filename, title="Save File As")
@@ -236,11 +280,13 @@ class VortexTunnelApp(ctk.CTkFrame):
                     for line in f: self.process_command(line.strip(), from_history=True)
         except Exception as e: print(f"Error loading config: {e}")
 
-    def on_closing(self):
-        config = {"last_profile": self.profile_menu.get() if self.my_name else "Select Profile"}
-        with open(self.config_file, 'w') as f: json.dump(config, f)
+    def on_closing(self, force_close=False):
+        if not force_close:
+            config = {"last_profile": self.profile_menu.get() if self.my_name else "Select Profile"}
+            with open(self.config_file, 'w') as f: json.dump(config, f)
         if self.connection: self.connection.close()
         self.master.destroy()
+        sys.exit()
 
     def process_command(self, command_str, from_history=False):
         try:
@@ -255,12 +301,11 @@ class VortexTunnelApp(ctk.CTkFrame):
             elif cmd == "FILE_ACCEPT": _, file_id = command_str.split(":", 1); threading.Thread(target=self._send_file_data, args=(file_id,), daemon=True).start()
             elif cmd == "FILE_REJECT": self.update_status("File transfer rejected by peer.", "orange")
             elif cmd == "ADD_TO_GALLERY": _, file_id, filename = command_str.split(":", 2); local_path = os.path.join(self.downloads_folder, f"{file_id}_{filename}"); self.add_file_to_gallery(file_id, filename, local_path)
-            elif cmd == "REQUEST_DOWNLOAD": _, file_id = command_str.split(":", 1); local_path = os.path.join(self.downloads_folder, f"{file_id}_{os.path.basename(self.file_gallery_items[file_id].winfo_children()[1].cget('text'))}"); self._send_file_data(file_id)
+            elif cmd == "REQUEST_DOWNLOAD": _, file_id = command_str.split(":", 1); self._send_file_data(file_id)
             elif cmd == "DELETE_FILE": _, file_id = command_str.split(":", 1); self.file_gallery_items[file_id].destroy(); del self.file_gallery_items[file_id]
             elif cmd == "CLEAR_GALLERY": [w.destroy() for w in self.file_gallery_items.values()]; self.file_gallery_items.clear()
             
             if not from_history: self.notify_user()
-            # Simplified history logging
             if not from_history and cmd in ["CHAT_MSG", "EDIT_MSG", "DELETE_MSG", "CLEAR_CHAT", "ADD_TO_GALLERY"]:
                 with open(self.chat_history_file, 'a' if cmd != "CLEAR_CHAT" else 'w') as f:
                     if cmd != "CLEAR_CHAT": f.write(command_str + '\n')
@@ -271,39 +316,99 @@ class VortexTunnelApp(ctk.CTkFrame):
         else: self.send_command(f"FILE_REJECT:{file_id}")
 
     def receive_data(self):
-        buffer = b""; separator = b"\n"; receiving_file_info = None
+        buffer = b""
+        separator = b"\n"
+
         while self.connected.is_set():
             try:
+                # Read data from the socket
                 chunk = self.connection.recv(8192)
-                if not chunk: self.handle_disconnect(); break
-                if receiving_file_info:
-                    buffer += chunk
-                    filepath, filesize, file_id = receiving_file_info['path'], receiving_file_info['size'], receiving_file_info['id']
-                    if len(buffer) >= filesize:
-                        file_data, buffer = buffer[:filesize], buffer[filesize:]
-                        with open(filepath, 'wb') as f: f.write(file_data)
-                        self.send_command(f"ADD_TO_GALLERY:{file_id}:{os.path.basename(filepath)}")
-                        self.add_file_to_gallery(file_id, os.path.basename(filepath), filepath)
-                        receiving_file_info = None
-                    continue
+                if not chunk:
+                    self.handle_disconnect()
+                    break
+                
                 buffer += chunk
+
+                # Process all newline-separated commands in the buffer
                 while separator in buffer:
-                    line_bytes, buffer = buffer.split(separator, 1)
-                    command_str = line_bytes.decode('utf-8', errors='ignore')
+                    command_bytes, buffer = buffer.split(separator, 1)
+                    command_str = command_bytes.decode('utf-8', errors='ignore').strip()
+
+                    if not command_str:
+                        continue
+
+                    # Check if a file transfer is starting
                     if command_str.startswith("FILE_START_TRANSFER"):
-                        _, file_id, filename, filesize_str = command_str.split(":", 3)
-                        save_path = filedialog.asksaveasfilename(initialfile=filename, title="Save Received File")
-                        if save_path:
-                            receiving_file_info = {"id": file_id, "path": save_path, "size": int(filesize_str)}
-                            if len(buffer) >= int(filesize_str):
-                                file_data, buffer = buffer[:int(filesize_str)], buffer[int(filesize_str):]
-                                with open(save_path, 'wb') as f: f.write(file_data)
-                                self.send_command(f"ADD_TO_GALLERY:{file_id}:{filename}")
-                                self.add_file_to_gallery(file_id, filename, save_path)
-                                receiving_file_info = None
-                        break
-                    elif command_str: self.process_command(command_str)
-            except Exception as e: print(f"Receive loop error: {e}"); self.handle_disconnect(); break
+                        try:
+                            # --- DEDICATED FILE RECEIVING LOGIC ---
+                            _, file_id, filename, filesize_str = command_str.split(":", 3)
+                            filesize = int(filesize_str)
+                            self.update_status(f"Receiving {filename}...", "orange")
+                            
+                            # Ask user where to save the file
+                            save_path = filedialog.asksaveasfilename(
+                                initialfile=filename,
+                                title=f"Save Received File: {filename}"
+                            )
+
+                            if not save_path:
+                                # User cancelled. We must discard the incoming file data to keep the connection synced.
+                                self.update_status(f"Cancelled receiving {filename}", "orange")
+                                bytes_to_discard = filesize
+                                # Discard any data already in the buffer
+                                if len(buffer) > 0:
+                                    discarded_now = min(len(buffer), bytes_to_discard)
+                                    buffer = buffer[discarded_now:]
+                                    bytes_to_discard -= discarded_now
+                                # Discard the rest from the socket
+                                while bytes_to_discard > 0:
+                                    discard_chunk = self.connection.recv(min(8192, bytes_to_discard))
+                                    if not discard_chunk:
+                                        self.handle_disconnect()
+                                        return
+                                    bytes_to_discard -= len(discard_chunk)
+                                continue # Go back to processing commands
+
+                            # User accepted, receive the file in a dedicated loop
+                            bytes_received = 0
+                            with open(save_path, 'wb') as f:
+                                # First, write any file data that was already in our buffer
+                                if len(buffer) > 0:
+                                    data_to_write = buffer[:filesize]
+                                    f.write(data_to_write)
+                                    bytes_received += len(data_to_write)
+                                    buffer = buffer[filesize:] # Keep any data that came after the file
+
+                                # Now, receive the rest of the file from the socket
+                                while bytes_received < filesize:
+                                    remaining = filesize - bytes_received
+                                    file_chunk = self.connection.recv(min(8192, remaining))
+                                    if not file_chunk:
+                                        self.handle_disconnect()
+                                        return
+                                    f.write(file_chunk)
+                                    bytes_received += len(file_chunk)
+                            
+                            # --- FILE TRANSFER COMPLETE ---
+                            self.update_status(f"Successfully received {filename}", "green")
+                            self.send_command(f"ADD_TO_GALLERY:{file_id}:{filename}")
+                            self.add_file_to_gallery(file_id, filename, save_path)
+
+                        except Exception as e:
+                            print(f"Error during file transfer: {e}")
+                            self.update_status("File transfer failed.", "red")
+                            # If something went wrong, the connection state is unknown, so it's safest to disconnect
+                            self.handle_disconnect()
+                            break
+                    
+                    else:
+                        # It's a regular command, process it
+                        self.process_command(command_str)
+
+            except Exception as e:
+                print(f"Receive loop error: {e}")
+                self.handle_disconnect()
+                break
 
     def send_command(self, data_str):
         if self.connection and self.connected.is_set():
@@ -366,13 +471,14 @@ class VortexTunnelApp(ctk.CTkFrame):
 if __name__ == "__main__":
     root = TkinterDnD.Tk()
     root.withdraw()
-    ICON_DATA = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAPhJREFUOE9jZGT4T5aBgZGREQYgixgYGBgYGBkZ/v/39/f/f39/f2ZnZ2dkZWXl/f39/X2oqKiIqKioyMjI8AACDAA6zQ0e8g41AAAAAElFTkSuQmCC")
+    ICON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Github", "VortexTunnelLogo.png")
     try:
-        icon_photo = tk.PhotoImage(data=ICON_DATA)
+        icon_photo = tk.PhotoImage(file=ICON_PATH)
         root.iconphoto(True, icon_photo)
-    except tk.TclError: print("Could not load custom icon.")
+    except tk.TclError:
+        print(f"Could not load custom icon from {ICON_PATH}.")
     root.title("Vortex Tunnel")
-    root.geometry("700x800")
+    root.geometry("800x600")
     ctk.set_appearance_mode("dark")
     app = VortexTunnelApp(master=root)
     app.pack(side="top", fill="both", expand=True)
