@@ -124,7 +124,7 @@ class VortexTunnelApp(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         self.master = master
-        app_data_dir = os.path.join(os.getenv('APPDATA'), 'Vortex Tunnel')
+        app_data_dir = os.path.join(os.getenv('APPDATA'), 'Vortex Tunnel V3')
         os.makedirs(app_data_dir, exist_ok=True)
         self.NATHAN_NAME, self.MAJID_NAME = "Nathan", "Majid"
         self.NATHAN_IP, self.MAJID_IP = "100.122.120.65", "100.93.161.73"

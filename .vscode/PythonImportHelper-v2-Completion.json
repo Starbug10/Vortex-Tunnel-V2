@@ -195,7 +195,7 @@
         "kind": 6,
         "importPath": "main",
         "description": "main",
-        "peekOfCode": "class VortexTunnelApp(ctk.CTkFrame):\n    CURRENT_VERSION = \"0.0.1\"\n    def __init__(self, master, **kwargs):\n        super().__init__(master, **kwargs)\n        self.master = master\n        app_data_dir = os.path.join(os.getenv('APPDATA'), 'Vortex Tunnel')\n        os.makedirs(app_data_dir, exist_ok=True)\n        self.NATHAN_NAME, self.MAJID_NAME = \"Nathan\", \"Majid\"\n        self.NATHAN_IP, self.MAJID_IP = \"100.122.120.65\", \"100.93.161.73\"\n        self.my_name, self.peer_name = None, None",
+        "peekOfCode": "class VortexTunnelApp(ctk.CTkFrame):\n    CURRENT_VERSION = \"0.0.1\"\n    def __init__(self, master, **kwargs):\n        super().__init__(master, **kwargs)\n        self.master = master\n        app_data_dir = os.path.join(os.getenv('APPDATA'), 'Vortex Tunnel V3')\n        os.makedirs(app_data_dir, exist_ok=True)\n        self.NATHAN_NAME, self.MAJID_NAME = \"Nathan\", \"Majid\"\n        self.NATHAN_IP, self.MAJID_IP = \"100.122.120.65\", \"100.93.161.73\"\n        self.my_name, self.peer_name = None, None",
         "detail": "main",
         "documentation": {}
     }
