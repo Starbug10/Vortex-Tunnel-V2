@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('Github/VortexTunnelLogo.png', 'Github')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
